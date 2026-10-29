@@ -46,8 +46,9 @@ HEADER_SIZE = 20
 DEFAULT_BLOOM_BITS = 1 << 20            # 128 KB — good for up to ~250k domains
 
 DEFAULT_SOURCES = [
-    'https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts',
-    'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/light.txt',
+    'https://raw.githubusercontent.com/gokul1630/homelab/refs/heads/main/adblock/hosts',
+    'https://raw.githubusercontent.com/StevenBlack/hosts/master/alternates/fakenews-gambling/hosts',
+    'https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/light-onlydomains.txt',
 ]
 
 def fnv64(b: bytes) -> int:

@@ -165,7 +165,7 @@ static bool isBlocked(const char* domain, size_t dlen) {
     uint64_t h64 = fnv64(p, remaining);
     uint64_t h40 = h64 & HASH_MASK;
     bool checkFlash = bloomMayContain(h64);  // false = definitely not in list, skip flash
-    if (checkFlash && (inFlash(h40) || inCustom(h40))) return true;
+    if (inCustom(h40) || (checkFlash && inFlash(h40))) return true;
     const char* dot = (const char*)memchr(p, '.', remaining);
     if (!dot) break;
     size_t consumed = (size_t)(dot - p) + 1;
@@ -631,25 +631,9 @@ static String b64encode(const String& s) {
   }
   return o;
 }
-static void genRandomPassword() {
-  const char chars[] = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  authPassword = "";
-  for (int i = 0; i < 10; i++)
-    authPassword += chars[esp_random() % (sizeof(chars) - 1)];
+static void initAuth() {
+  authPassword = DASHBOARD_PASSWORD;
   authToken = String((uint32_t)(esp_random() & 0xFFFFFF), HEX);
-}
-static void loadAuth() {
-  File f = LittleFS.open("/auth.cfg", "r");
-  if (f) {
-    authPassword = f.readStringUntil('\n'); authPassword.trim();
-    authToken = f.readStringUntil('\n'); authToken.trim();
-    f.close();
-  }
-  if (authPassword.length() == 0) {
-    genRandomPassword();
-    File fo = LittleFS.open("/auth.cfg", "w");
-    if (fo) { fo.println(authPassword); fo.println(authToken); fo.close(); }
-  }
 }
 static bool checkAuth() {
   String expected = "Basic " + b64encode("admin:" + authPassword);
@@ -678,7 +662,7 @@ static String jesc(const String& s) {
 static void handleRoot() {
   if (!checkAuth()) { requireAuth(); return; }
   if (web.header("If-None-Match") == DASHBOARD_ETAG) { web.send(304); return; }
-  web.sendHeader("Cache-Control", "max-age=3600");
+  web.sendHeader("Cache-Control", "no-cache");
   web.sendHeader("ETag", DASHBOARD_ETAG);
   web.send_P(200, "text/html", PAGE);
 }
@@ -955,6 +939,14 @@ static void handleFwUpload() {
 }
 
 // ---- WiFi config (WiFiManager captive portal) ----
+static int wifiDisconnectReason = -1;
+
+static void captureWiFiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info) {
+  if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+    wifiDisconnectReason = info.wifi_sta_disconnected.reason;
+  }
+}
+
 static bool loadWifiCfg(String& ssid, String& pass) {
   File f = LittleFS.open("/wifi.cfg", "r");
   if (!f) return false;
@@ -983,7 +975,14 @@ static bool connectWiFi() {
 
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
+  wifiDisconnectReason = -1;
+  WiFi.onEvent(captureWiFiDisconnect);
+  IPAddress staticIp(192, 168, 1, 50);
+  IPAddress gateway(192, 168, 1, 1);
+  IPAddress subnet(255, 255, 255, 0);
+  WiFi.config(staticIp, gateway, subnet, gateway);
   WiFi.begin(trySsid, tryPass);
+  WiFi.setTxPower(WIFI_POWER_11dBm);
   LOG("WiFi: connecting to %s", trySsid);
   uint32_t t0 = millis();
   while (WiFi.status() != WL_CONNECTED && (millis() - t0) < 15000) {
@@ -993,7 +992,8 @@ static bool connectWiFi() {
     LOGN("\nWiFi up: " + WiFi.localIP().toString());
     return true;
   }
-  LOGN("\nWiFi connect failed");
+  LOG("\nWiFi connect failed (status=%d, disconnect reason=%d)\n",
+      (int)WiFi.status(), wifiDisconnectReason);
   WiFi.disconnect();
   return false;
 }
@@ -1071,14 +1071,13 @@ void setup() {
 
   if (!LittleFS.begin(true)) LOGN("LittleFS FAILED");
 
-  loadAuth();
+  initAuth();
   loadCustom();
   loadBanned();
   loadUpdateCfg();
   loadDhcpCfg();
   reopenBlocklist();
-  LOG("[cfg] custom:%d banned:%d auth:%s\n", numCustom, numBanned, authPassword.c_str());
-  LOGN("[cfg] dashboard password: " + authPassword);
+  LOG("[cfg] custom:%d banned:%d\n", numCustom, numBanned);
 
   if (!connectWiFi()) {
     runCaptivePortal();  // blocks forever (reboots on save)

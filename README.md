@@ -40,9 +40,8 @@ performance, and security fixes:
 - **`parseQuery` robust bounds checking** — was fragile on compression pointers.
 
 ### Security
-- **Dashboard authentication** — Basic Auth with a random password generated on
-  first boot (printed on serial). Was: no auth, anyone on the LAN could flash
-  firmware or swap the blocklist.
+- **Dashboard authentication** — Basic Auth using a fixed password configured
+  in the ignored `src/secrets.h` file.
 - **CSRF token** on all mutating endpoints — a malicious page on the LAN can't
   ban clients or upload firmware via the victim's browser.
 - **CA-verified HTTPS** for remote blocklist fetches — was `setInsecure()`, which
@@ -263,19 +262,15 @@ You need [PlatformIO](https://platformio.org/) and Python 3.
    - Enter your WiFi name and password, click **Connect**.
    - The device saves your credentials, reboots, and joins your WiFi.
 
-3. **Find the dashboard password:**
-   - On the serial console, look for:
-     ```
-     [cfg] dashboard password: xY7kPm2nQa
-     ```
-   - Write this down. You can also find it later in the LittleFS file `/auth.cfg`.
-
+3. **Set the dashboard password:**
+   - Set `DASHBOARD_PASSWORD` in `src/secrets.h` to a unique password before
+     building and flashing. Do not leave the example placeholder in place.
 4. **Open the dashboard:**
    - Go to **http://c3adblock.local** in a browser (mDNS).
    - If that doesn't work (some networks block mDNS), use the IP address shown
      on the serial console, e.g. `http://192.168.1.42`.
-   - You'll get a Basic Auth prompt. Enter any username and the password from
-     step 3.
+   - At the Basic Auth prompt, enter any username and the password you set in
+     `src/secrets.h`.
 
 ### Pointing your devices at the ad-blocker
 
@@ -425,7 +420,7 @@ Releases with auto-generated release notes. Assets:
 - ✅ Async upstream forwarding (32 concurrent queries, no blocking)
 - ✅ TCP DNS support (port 53)
 - ✅ AAAA sinkhole (blocked IPv6 queries answered with `::`, not leaked upstream)
-- ✅ Dashboard auth (Basic Auth + CSRF token)
+- ✅ Dashboard auth (fixed Basic Auth password + CSRF token)
 - ✅ WiFiManager captive portal (first-boot WiFi setup without recompiling)
 - ✅ Optional DHCP server (hands out C3 as DNS for plug-and-play)
 - ✅ CA-verified HTTPS for remote blocklist fetches

@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>9M2PJU ESP32-C3 AdBlocker — Web Flasher</title>
 <style>
+*{box-sizing:border-box}
 body{font:15px system-ui,-apple-system,sans-serif;margin:0;background:#0d1117;color:#c9d1d9;line-height:1.6}
 .wrap{max-width:680px;margin:0 auto;padding:24px 20px 60px}
 h1{font-size:26px;margin:0 0 4px}
@@ -32,6 +33,12 @@ code{background:#21262d;border-radius:4px;padding:2px 6px;font-size:13px}
 .step-body{flex:1}
 .step-body b{color:#c9d1d9}
 .step-body p{margin:4px 0 0;color:#8b949e;font-size:14px}
+@media(max-width:600px){
+  .wrap{padding:16px 12px 40px}
+  .card{padding:16px 14px}
+  .flash-box{padding:20px 14px}
+  h1{font-size:22px}
+}
 </style>
 </head>
 <body>
@@ -41,7 +48,7 @@ code{background:#21262d;border-radius:4px;padding:2px 6px;font-size:13px}
 <p class="sub">Flash directly from your browser — no software install needed.</p>
 
 <div class="flash-box">
-<esp-web-install-button manifest="manifest.yml"></esp-web-install-button>
+<esp-web-install-button manifest="manifest.json"></esp-web-install-button>
 <p>Click <b>CONNECT</b> and select your ESP32-C3's serial port.</p>
 </div>
 
@@ -108,7 +115,7 @@ at boot (look for <code>[cfg] dashboard password:</code>).</p>
 <div class="card">
 <h2>What gets flashed</h2>
 <ol>
-<li><b>Bootloader</b> (offset <code>0x1000</code>) — ESP32-C3 bootloader</li>
+<li><b>Bootloader</b> (offset <code>0x0</code>) — ESP32-C3 bootloader</li>
 <li><b>Partition table</b> (offset <code>0x8000</code>) — dual-OTA + LittleFS layout</li>
 <li><b>Firmware</b> (offset <code>0x10000</code>) — the ad-blocker application</li>
 <li><b>Blocklist filesystem</b> (offset <code>0x2b0000</code>) — ~140k blocked domains
@@ -132,10 +139,25 @@ then release after flashing starts.<br>
 <code>sudo systemctl stop ModemManager</code>
 </div>
 
+<div class="card" style="text-align:center">
+<h2>Support this open-source project</h2>
+<p style="color:#8b949e;font-size:14px;margin:0 0 16px">If you enjoy using this ESP32-C3 AdBlocker, consider buying me a coffee or donating to support maintenance and future updates:</p>
+<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+  <a href="https://buymeacoffee.com/9m2pju" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;background:#ffdd00;color:#000;font-weight:600;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px">
+    ☕ Buy Me a Coffee
+  </a>
+  <a href="https://paypal.me/9m2pju" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;background:#0070ba;color:#fff;font-weight:600;padding:10px 18px;border-radius:8px;text-decoration:none;font-size:14px">
+    <svg style="width:16px;height:16px;margin-right:6px;fill:currentColor" viewBox="0 0 24 24"><path d="M7.076 21.337H2.47a.641.641 0 0 1-.633-.74L4.944.901C5.009.4 5.441 0 5.95 0h8.634c3.486 0 6.06 1.488 6.06 5.342 0 4.14-2.82 7.02-6.52 7.02h-2.92l-1.07 6.786a.641.641 0 0 1-.633.54H7.076z"/></svg> Donate with PayPal
+  </a>
+</div>
+</div>
+
 <div class="footer">
 9M2PJU ESP32-C3 AdBlocker &middot;
 <a href="https://github.com/9M2PJU/9M2PJU-ESP32-C3-AdBlocker">GitHub</a> &middot;
 <a href="https://github.com/9M2PJU/9M2PJU-ESP32-C3-AdBlocker/releases">Releases</a> &middot;
+<a href="https://buymeacoffee.com/9m2pju" target="_blank" rel="noopener">Buy Me a Coffee</a> &middot;
+<a href="https://paypal.me/9m2pju" target="_blank" rel="noopener">PayPal</a> &middot;
 Powered by <a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools</a>
 </div>
 </div>

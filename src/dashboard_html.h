@@ -4,96 +4,261 @@
 
 const char PAGE[] PROGMEM = R"HTML(<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>C3 AdBlock</title><style>
-body{font:14px system-ui,sans-serif;margin:0;background:#0d1117;color:#c9d1d9}
-header{background:#161b22;padding:14px 18px;border-bottom:1px solid #30363d}
-h1{margin:0;font-size:18px}h1 span{color:#3fb950}.wrap{padding:16px;max-width:1000px;margin:auto}
-.cards{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
-.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px 16px;flex:1;min-width:120px}
-.card .v{font-size:22px;font-weight:600}.card .l{color:#8b949e;font-size:12px}
-table{width:100%;border-collapse:collapse;background:#161b22;border-radius:8px;overflow:hidden;margin-bottom:18px}
-th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #21262d;font-size:13px}
-th{background:#21262d;color:#8b949e}tr:hover td{background:#1c2128}
-.b{color:#f85149}.a{color:#3fb950}.tag{background:#30363d;border-radius:4px;padding:1px 6px;font-size:11px}
-button{background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:5px;padding:4px 9px;cursor:pointer}
-button:hover{background:#30363d}.ban{color:#f85149}input{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:5px;padding:6px}
-h2{font-size:14px;color:#8b949e;margin:18px 0 8px}
+*{box-sizing:border-box}
+body{font:14px/1.5 system-ui,-apple-system,sans-serif;margin:0;background:#0d1117;color:#c9d1d9}
+header{background:#161b22;padding:12px 20px;border-bottom:1px solid #30363d;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.brand{display:flex;align-items:center;gap:8px}
+h1{margin:0;font-size:18px;font-weight:600}h1 span{color:#3fb950}
+.badge{background:#21262d;border:1px solid #30363d;border-radius:12px;padding:2px 8px;font-size:11px;color:#8b949e}
+.host-pill{color:#8b949e;font-size:12px;font-family:monospace;background:#21262d;padding:3px 8px;border-radius:6px;border:1px solid #30363d}
+.wrap{padding:18px;max-width:1040px;margin:auto}
+
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:20px}
+.card{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;justify-content:center}
+.card .v{font-size:20px;font-weight:700;line-height:1.2;word-break:break-word}
+.card .l{color:#8b949e;font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-top:4px}
+
+.panel{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px;margin-bottom:18px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:6px}
+.panel-head h2{font-size:13px;font-weight:600;color:#f0f6fc;margin:0;text-transform:uppercase;letter-spacing:0.5px}
+
+input,select{background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;padding:8px 10px;font-size:13px;outline:none;transition:border-color .15s}
+input:focus,select:focus{border-color:#58a6ff}
+button{background:#21262d;color:#c9d1d9;border:1px solid #30363d;border-radius:6px;padding:8px 14px;font-size:13px;font-weight:500;cursor:pointer;transition:background .15s,border-color .15s;white-space:nowrap}
+button:hover{background:#30363d;border-color:#8b949e}
+button.primary{background:#238636;border-color:#2ea043;color:#fff}
+button.primary:hover{background:#2ea043}
+
+.b{color:#f85149}.a{color:#3fb950}.ban{color:#f85149}
+.tag{background:#30363d;border-radius:4px;padding:2px 6px;font-size:11px;font-weight:600}
+.hint{color:#8b949e;font-size:12px;margin-top:6px;line-height:1.4}
+hr.div{border:none;border-top:1px solid #21262d;margin:14px 0}
+
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.row-full{display:flex;gap:8px;align-items:center;width:100%}
+.flex-1{flex:1;min-width:140px}
+
+.table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid #30363d;border-radius:6px;margin-bottom:6px}
+table{width:100%;border-collapse:collapse;min-width:480px}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid #21262d;font-size:13px}
+th{background:#1c2128;color:#8b949e;font-weight:600;text-transform:uppercase;font-size:11px;letter-spacing:0.5px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#1c2128}
+
+footer{text-align:center;color:#484f58;font-size:12px;margin-top:24px;padding-top:16px;border-top:1px solid #21262d}
+footer a{color:#58a6ff;text-decoration:none}footer a:hover{text-decoration:underline}
+.sponsor-bar{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:12px}
+.sponsor-btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:6px;font-size:12px;text-decoration:none;font-weight:600}
+.bmac-btn{background:#ffdd00;color:#000}.pp-btn{background:#0070ba;color:#fff}
+
+@media(max-width:640px){
+  header{padding:10px 14px}
+  .wrap{padding:12px 10px}
+  .cards{grid-template-columns:repeat(2,1fr);gap:8px}
+  .card{padding:10px 12px}
+  .card .v{font-size:18px}
+  .panel{padding:12px;margin-bottom:14px}
+  .row{flex-direction:column;align-items:stretch;gap:8px}
+  .row input,.row select,.row button{width:100%}
+  .row-full{flex-direction:column;align-items:stretch}
+  .row-full input,.row-full button{width:100%}
+  .inline-controls{display:flex;gap:8px;width:100%}
+  .inline-controls>*{flex:1}
+}
 </style></head><body>
-<header><h1>C3 AdBlock <span id=host></span></h1></header><div class=wrap>
-<div class=cards id=sys></div>
-<h2>CLIENTS</h2><table id=ct><thead><tr><th>Client</th><th>MAC</th><th>Blocked</th><th>Allowed</th><th></th></tr></thead><tbody></tbody></table>
-<h2>CUSTOM BLOCKED DOMAINS</h2>
-<div style=margin-bottom:8px><input id=dom placeholder="ads.example.com" size=30><button onclick=addDom()>Block domain</button></div>
-<table id=cl><tbody></tbody></table>
-<h2>BLOCKLIST &mdash; UPLOAD</h2>
-<form id=upf style=margin-bottom:6px><input type=file id=blf accept=.bin><button>Upload blocklist</button> <span id=upmsg style=color:#8b949e></span></form>
-<div style="color:#8b949e;font-size:12px;margin-bottom:18px">build <code>blocklist.bin</code> with <code>tools/build_blocklist.py</code>, then upload here &mdash; no USB</div>
-<h2>BLOCKLIST &mdash; REMOTE AUTO-UPDATE</h2>
-<div style=margin-bottom:6px><input id=uurl placeholder="https://host/blocklist.bin" size=40> every <input id=uiv size=2 value=24>h
-<button onclick=saveUpd()>Save</button> <button onclick=fetchNow()>Fetch now</button></div>
-<div style="color:#8b949e;font-size:12px;margin-bottom:18px">device pulls a prebuilt <code>blocklist.bin</code> on a schedule. last: <span id=ustat>&mdash;</span></div>
-<h2>DHCP SERVER <span id=dhcpst class=tag></span></h2>
-<div style=margin-bottom:18px><button onclick=toggleDhcp()>Enable / Disable DHCP</button>
-<span style="color:#8b949e;font-size:12px;margin-left:8px">disables router DHCP for you &mdash; C3 hands out its own IP as DNS</span></div>
-<h2>WIFI NETWORK</h2>
-<div style=margin-bottom:6px>Current: <span id=wifi style=color:#3fb950></span></div>
-<div style=margin-bottom:18px><input id=wssid placeholder="New SSID" size=20> <input id=wpass type=password placeholder="New password" size=20>
-<button onclick=saveWifi()>Change WiFi</button> <span id=wmsg style=color:#8b949e></span></div>
-<h2>FIRMWARE &mdash; OTA UPDATE</h2>
-<form id=fwf style=margin-bottom:6px><input type=file id=fwb accept=.bin><button>Flash firmware</button> <span id=fwmsg style=color:#8b949e></span></form>
-<div style="color:#8b949e;font-size:12px;margin-bottom:18px">upload <code>.pio/build/c3/firmware.bin</code> &mdash; device verifies it and reboots into it</div>
+<header>
+  <div class=brand>
+    <h1><span>C3</span> AdBlock</h1>
+    <span class=badge id=fwver>v1.2.1</span>
+  </div>
+  <span class=host-pill id=host></span>
+</header>
+<div class=wrap>
+  <div class=cards id=sys></div>
+
+  <div class=panel>
+    <div class=panel-head><h2>Connected Clients</h2></div>
+    <div class=table-wrap>
+      <table id=ct><thead><tr><th>Client IP</th><th>MAC Address</th><th>Blocked</th><th>Allowed</th><th>Action</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <div class=panel>
+    <div class=panel-head><h2>Custom Blocked Domains</h2></div>
+    <div class="row row-full" style="margin-bottom:10px">
+      <input id=dom placeholder="ads.example.com" class=flex-1>
+      <button class=primary onclick=addDom()>Block domain</button>
+    </div>
+    <div class=table-wrap><table id=cl><tbody></tbody></table></div>
+  </div>
+
+  <div class=panel>
+    <div class=panel-head><h2>Blocklist Management</h2></div>
+    <div style="font-weight:600;font-size:11px;color:#8b949e;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Remote Auto-Update</div>
+    <div class="row row-full" style="margin-bottom:6px">
+      <input id=uurl placeholder="https://9m2pju.github.io/9M2PJU-ESP32-C3-AdBlocker/blocklist.bin" class=flex-1>
+      <div class=inline-controls>
+        <span style="display:inline-flex;align-items:center;gap:4px;color:#8b949e;font-size:13px">every <input id=uiv size=2 value=24 style="width:48px;text-align:center"> h</span>
+        <button onclick=saveUpd()>Save</button>
+        <button class=primary onclick=fetchNow()>Fetch now</button>
+      </div>
+    </div>
+    <div class=hint>Last update status: <span id=ustat style="color:#c9d1d9">&mdash;</span></div>
+    <div class=hint>Signature: <span id=sigst style="color:#c9d1d9">&mdash;</span>
+      <button onclick=toggleSigReq() style="margin-left:8px">Toggle require-signed</button></div>
+
+    <hr class=div>
+
+    <div style="font-weight:600;font-size:11px;color:#8b949e;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Manual Blocklist Upload</div>
+    <form id=upf class="row row-full">
+      <input type=file id=blf accept=.bin class=flex-1>
+      <input type=file id=sgf accept=.sig class=flex-1>
+      <button>Upload blocklist</button>
+      <span id=upmsg style=color:#8b949e></span>
+    </form>
+    <div class=hint>Build <code>blocklist.bin</code> using <code>tools/build_blocklist.py</code> (+ optional <code>--sign-key</code> for a <code>.sig</code>) and upload directly without USB.</div>
+  </div>
+
+  <div class=panel>
+    <div class=panel-head><h2>WiFi &amp; Thermal Control</h2></div>
+    <div style="font-weight:600;font-size:11px;color:#8b949e;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Transmit Power (TX Power)</div>
+    <div class="row row-full" style="margin-bottom:6px">
+      <select id=txsel onchange=saveTxPower() class=flex-1>
+        <option value="2">2 dBm (Coolest / Near router)</option>
+        <option value="5">5 dBm (Low)</option>
+        <option value="8.5">8.5 dBm (Recommended / Stable)</option>
+        <option value="11">11 dBm</option>
+        <option value="13">13 dBm (Medium)</option>
+        <option value="15">15 dBm</option>
+        <option value="17">17 dBm (Standard)</option>
+        <option value="18.5">18.5 dBm (High)</option>
+        <option value="19.5">19.5 dBm (Max / Hottest)</option>
+      </select>
+      <span id=txmsg style=color:#8b949e></span>
+    </div>
+    <div class=hint>Lower transmit power significantly reduces ESP32-C3 PCB temperature and prevents regulator overheating. If signal is weaker than -70 dBm, use 11 dBm or higher — 2/5 dBm with a weak signal causes retries, CCMP-replay drops and disconnects.</div>
+
+    <hr class=div>
+
+    <div style="font-weight:600;font-size:11px;color:#8b949e;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">WiFi Power-Save (Modem Sleep)</div>
+    <div class="row row-full" style="margin-bottom:6px">
+      <select id=pssel onchange=savePs() class=flex-1>
+        <option value="min">min (Modem sleep — cooler, default)</option>
+        <option value="none">none (Always on — stable on flaky APs)</option>
+      </select>
+      <span id=psmsg style=color:#8b949e></span>
+    </div>
+    <div class=hint>If the log shows repeated <code>CCMP replay detected</code> + <code>WiFi connect failed</code> loops, switch to <code>none</code>. Takes full effect on the next reconnect.</div>
+
+    <hr class=div>
+
+    <div style="font-weight:600;font-size:11px;color:#8b949e;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">WiFi Network Credentials</div>
+    <div style="margin-bottom:8px">Connected to: <span id=wifi style=color:#3fb950;font-weight:600></span></div>
+    <div class="row row-full">
+      <input id=wssid placeholder="New SSID" class=flex-1>
+      <input id=wpass type=password placeholder="New password" class=flex-1>
+      <button onclick=saveWifi()>Change WiFi</button>
+      <span id=wmsg style=color:#8b949e></span>
+    </div>
+  </div>
+
+  <div class=panel>
+    <div class=panel-head>
+      <h2>DHCP Server &amp; System</h2>
+      <span id=dhcpst class=tag></span>
+    </div>
+    <div class="row row-full">
+      <button onclick=toggleDhcp()>Toggle DHCP Server</button>
+      <span class=hint style="margin:0">When enabled, C3 hands out its own IP as DNS to network clients.</span>
+    </div>
+
+    <hr class=div>
+
+    <div style="font-weight:600;font-size:11px;color:#8b949e;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px">Firmware OTA Update</div>
+    <form id=fwf class="row row-full">
+      <input type=file id=fwb accept=.bin class=flex-1>
+      <button class=primary>Flash firmware</button>
+      <span id=fwmsg style=color:#8b949e></span>
+    </form>
+    <div class=hint>Upload <code>firmware.bin</code> &mdash; device validates the image and safely reboots into it. Single-app (max-blocklist) builds have no firmware OTA slot: reflash those over USB (web flasher / esptool).</div>
+  </div>
+
+  <footer>
+    <div class=sponsor-bar>
+      <a href="https://buymeacoffee.com/9m2pju" target="_blank" rel="noopener" class="sponsor-btn bmac-btn">☕ Buy Me a Coffee</a>
+      <a href="https://paypal.me/9m2pju" target="_blank" rel="noopener" class="sponsor-btn pp-btn">Donate with PayPal</a>
+    </div>
+    <div>9M2PJU ESP32-C3 AdBlocker &middot; <a href="https://github.com/9M2PJU/9M2PJU-ESP32-C3-AdBlocker" target="_blank" rel="noopener">GitHub</a> &middot; <a href="https://9m2pju.github.io/9M2PJU-ESP32-C3-AdBlocker/" target="_blank" rel="noopener">Web Flasher</a></div>
+  </footer>
 </div><script>
 let T='';
 function fmt(n){return n.toLocaleString()}
-function mut(p){return p+(p.includes('?')?'&':'?')+'token='+T}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function H(){return {'X-CSRF-Token':T}}
 async function load(){let s=await(await fetch('/stats.json')).json();
 T=s.token||'';
 host.textContent='@ '+s.ip;
+if(s.version)fwver.textContent='v'+s.version;
 sys.innerHTML=[['Total blocked',fmt(s.blocked),'b'],['Total allowed',fmt(s.allowed),'a'],['Blocklist',fmt(s.domains)+' domains',''],
-['Bloom',s.bloom||'off',''],['Pending',s.pending||0,''],['Clients',s.clients.length,''],
-['WiFi',s.rssi+' dBm',''],['Temp',s.temp+' C',''],['Free RAM',Math.round(s.heap/1024)+' KB',''],['Uptime',s.uptime,'']]
+['WiFi Signal',s.rssi+' dBm',''],['Temp',s.temp+' C',''],['TX Power',(s.txpower||'8.5')+' dBm',''],['Firmware','v'+(s.version||'1.2.0')+(s.single_app?' (single-app)':''),''],['Free RAM',Math.round(s.heap/1024)+' KB',''],['Uptime',s.uptime,''],
+['FS',s.fstotal?Math.round(s.fsused/1024)+' / '+Math.round(s.fstotal/1024)+' KB':'—',''],
+['Clients',s.clients.length,''],['Pending',s.pending||0,''],['Bloom',s.bloom||'off',''],
+['Blocklist sig',(s.blsig||'unverified')+(s.sigreq?' (required)':''),'']]
 .map(c=>`<div class=card><div class="v ${c[2]}">${c[1]}</div><div class=l>${c[0]}</div></div>`).join('');
 ct.tBodies[0].innerHTML=s.clients.sort((a,b)=>(b.blocked+b.allowed)-(a.blocked+a.allowed)).map(c=>
-`<tr><td>${c.ip}${c.banned?' <span class=tag style=color:#f85149>BANNED</span>':''}</td><td>${c.mac}</td>
+`<tr><td>${esc(c.ip)}${c.banned?' <span class=tag style=color:#f85149>BANNED</span>':''}</td><td>${esc(c.mac)}</td>
 <td class=b>${fmt(c.blocked)}</td><td class=a>${fmt(c.allowed)}</td>
-<td><button class=ban onclick="fetch(mut('/ban?ip=${c.ip}')).then(load)">${c.banned?'Unban':'Ban'}</button></td></tr>`).join('');
-cl.tBodies[0].innerHTML=s.custom.map(d=>`<tr><td>${d}</td><td style=text-align:right><button onclick="fetch(mut('/unblock?d='+encodeURIComponent('${d}'))).then(load)">remove</button></td></tr>`).join('')||'<tr><td style=color:#8b949e>none yet</td></tr>';
+<td><button class=ban onclick="fetch('/ban?ip=${encodeURIComponent(c.ip)}',{headers:H()}).then(load)">${c.banned?'Unban':'Ban'}</button></td></tr>`).join('');
+cl.tBodies[0].innerHTML=s.custom.map(d=>`<tr><td>${esc(d)}</td><td style=text-align:right><button onclick="fetch('/unblock?d=${encodeURIComponent(d)}',{headers:H()}).then(load)">remove</button></td></tr>`).join('')||'<tr><td style=color:#8b949e>none yet</td></tr>';
 if(document.activeElement!=uurl)uurl.value=s.upurl||'';
 if(document.activeElement!=uiv)uiv.value=s.upiv||24;
 ustat.textContent=s.upstat||'—';
+sigst.textContent=((s.blsig||'unverified')+(s.sigreq?' — required':' — optional')+(s.keyid?' ('+s.keyid+')':''))||'—';
 dhcpst.textContent=s.dhcp?'ON':'OFF';
 dhcpst.style.color=s.dhcp?'#3fb950':'#8b949e';
-wifi.textContent=s.wifi||'—';}
-function addDom(){let d=dom.value.trim();if(d){fetch(mut('/addblock?d='+encodeURIComponent(d))).then(()=>{dom.value='';load()})}}
-function saveUpd(){fetch(mut('/setupdate?u='+encodeURIComponent(uurl.value.trim())+'&h='+(parseInt(uiv.value)||24))).then(load)}
-function fetchNow(){ustat.textContent='fetching...';fetch(mut('/fetchnow')).then(r=>r.text()).then(t=>{ustat.textContent=t;load()})}
-function toggleDhcp(){fetch(mut('/dhcp')).then(r=>r.text()).then(t=>{alert(t);load()})}
+wifi.textContent=s.wifi||'—';
+if(document.activeElement!=txsel && s.txpower)txsel.value=s.txpower;
+if(document.activeElement!=pssel && s.wifips)pssel.value=s.wifips;}
+function addDom(){let d=dom.value.trim();if(d){fetch('/addblock?d='+encodeURIComponent(d),{headers:H()}).then(()=>{dom.value='';load()})}}
+function saveUpd(){let u=uurl.value.trim();if(u&&u.indexOf('://')<0)u='https://'+u;fetch('/setupdate?u='+encodeURIComponent(u)+'&h='+(parseInt(uiv.value)||24),{headers:H()}).then(load)}
+function fetchNow(){ustat.textContent='fetching...';fetch('/fetchnow',{headers:H()}).then(r=>r.text()).then(t=>{ustat.textContent=t;load()})}
+function toggleDhcp(){fetch('/dhcp',{headers:H()}).then(r=>r.text()).then(t=>{alert(t);load()})}
+function toggleSigReq(){fetch('/sigrequire',{headers:H()}).then(r=>r.text()).then(t=>{alert(t);load()})}
 function saveWifi(){let s=wssid.value.trim(),p=wpass.value.trim();if(!s){wmsg.textContent='enter SSID';return}
-wmsg.textContent='saving...';fetch(mut('/setwifi?ssid='+encodeURIComponent(s)+'&pass='+encodeURIComponent(p))).then(r=>r.text()).then(t=>{wmsg.textContent=t;})}
+wmsg.textContent='saving...';fetch('/setwifi',{method:'POST',headers:Object.assign({'Content-Type':'application/x-www-form-urlencoded'},H()),body:'ssid='+encodeURIComponent(s)+'&pass='+encodeURIComponent(p)}).then(r=>r.text()).then(t=>{wmsg.textContent=t;})}
+function saveTxPower(){let p=txsel.value;txmsg.textContent='saving...';fetch('/settxpower?p='+encodeURIComponent(p),{headers:H()}).then(r=>r.text()).then(t=>{txmsg.textContent=t;setTimeout(()=>{txmsg.textContent='';load()},1000)})}
+function savePs(){let m=pssel.value;psmsg.textContent='saving...';fetch('/setwifips?m='+encodeURIComponent(m),{headers:H()}).then(r=>r.text()).then(t=>{psmsg.textContent=t;setTimeout(()=>{psmsg.textContent='';load()},1500)})}
 fwf.onsubmit=async e=>{e.preventDefault();let f=fwb.files[0];if(!f)return;fwmsg.textContent='flashing '+(f.size/1048576).toFixed(2)+' MB...';
 let fd=new FormData();fd.append('f',f);
-try{let r=await fetch(mut('/update'),{method:'POST',body:fd});fwmsg.textContent=r.ok?'rebooting, reconnect in ~15s':'failed: '+await r.text();}
-catch(_){fwmsg.textContent='rebooting, reconnect in ~15s';}};
+try{let r=await fetch('/update',{method:'POST',headers:H(),body:fd});let txt=await r.text();fwmsg.textContent=r.ok?txt:'failed: '+txt;}
+catch(err){fwmsg.textContent='err: '+err.message;}};
 upf.onsubmit=async e=>{e.preventDefault();let f=blf.files[0];if(!f)return;
 upmsg.textContent='uploading '+(f.size/1048576).toFixed(2)+' MB...';
-let fd=new FormData();fd.append('f',f);
-try{let r=await fetch(mut('/upload'),{method:'POST',body:fd});upmsg.textContent=r.ok?'updated':'failed: '+await r.text();}
+let fd=new FormData();fd.append('f',f);let g=sgf.files[0];if(g)fd.append('g',g);
+try{let r=await fetch('/upload',{method:'POST',headers:H(),body:fd});upmsg.textContent=r.ok?await r.text():'failed: '+await r.text();}
 catch(_){upmsg.textContent='upload failed';}
-blf.value='';setTimeout(load,600);};
+blf.value='';sgf.value='';setTimeout(load,600);};
 load();setInterval(load,3000);
 </script></body></html>)HTML";
 
 const char PORTAL_HTML[] PROGMEM = R"HTML(<!doctype html><html><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
 <title>C3 AdBlock Setup</title><style>
-body{font:14px system-ui,sans-serif;margin:0;background:#0d1117;color:#c9d1d9}
-.wrap{padding:24px;max-width:400px;margin:auto;margin-top:40px}
-input{width:100%;box-sizing:border-box;margin:4px 0 12px;padding:10px;background:#161b22;border:1px solid #30363d;color:#c9d1d9;border-radius:5px}
-button{width:100%;padding:12px;background:#238636;color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:15px}
-h1{font-size:20px}p{color:#8b949e}
-</style></head><body><div class=wrap>
-<h1>C3 AdBlock Setup</h1>
+*{box-sizing:border-box}
+body{font:14px/1.5 system-ui,-apple-system,sans-serif;margin:0;background:#0d1117;color:#c9d1d9}
+.wrap{padding:24px 20px;max-width:380px;margin:40px auto}
+.card{background:#161b22;border:1px solid #30363d;border-radius:10px;padding:22px}
+input{width:100%;margin:6px 0 14px;padding:10px 12px;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;border-radius:6px;font-size:14px}
+input:focus{border-color:#58a6ff;outline:none}
+button{width:100%;padding:11px;background:#238636;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:15px;font-weight:600}
+button:hover{background:#2ea043}
+h1{font-size:19px;margin:0 0 6px;color:#f0f6fc}h1 span{color:#3fb950}p{color:#8b949e;font-size:13px;margin:0 0 16px}
+</style></head><body><div class=wrap><div class=card>
+<h1><span>C3</span> AdBlock Setup</h1>
 <p>Connect this device to your WiFi network.</p>
 <form action=/save-wifi method=post>
-<input name=ssid placeholder="WiFi name" required>
-<input name=pass type=password placeholder="WiFi password" required>
-<button>Connect</button>
-</form></div></body></html>)HTML";
+<label style="font-size:12px;color:#8b949e">WiFi Network (SSID)</label>
+<input name=ssid placeholder="Enter SSID" required>
+<label style="font-size:12px;color:#8b949e">WiFi Password</label>
+<input name=pass type=password placeholder="Enter password" required>
+<button>Connect to WiFi</button>
+</form></div></div></body></html>)HTML";

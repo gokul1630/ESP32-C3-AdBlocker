@@ -4,6 +4,11 @@
   <img src="docs/banner.jpg" alt="9M2PJU ESP32-C3 AdBlocker" width="100%">
 </p>
 
+<p align="center">
+  <a href="https://buymeacoffee.com/9m2pju"><img src="https://img.shields.io/badge/Buy%20Me%20A%20Coffee-9m2pju-orange?style=for-the-badge&logo=buy-me-a-coffee" alt="Buy Me A Coffee"></a>
+  <a href="https://paypal.me/9m2pju"><img src="https://img.shields.io/badge/Donate-PayPal-blue?style=for-the-badge&logo=paypal" alt="Donate with PayPal"></a>
+</p>
+
 A **Pi-hole-style DNS ad-blocker** that runs on a **$2 ESP32-C3** — *no PSRAM required*.
 
 The trick everyone misses: you don't need to keep the blocklist in RAM. Store the
@@ -12,6 +17,58 @@ fit in ~0.7 MB of flash and are matched in **<1 ms** (with Bloom filter pre-filt
 using **~180 KB of RAM** (including the 128 KB Bloom filter).
 
 ## What's new in this version
+
+### Recent releases
+- **v1.2.0** — bloom observability + build-time FPR guard: firmware logs
+  theory FPR at boot and exposes `bloomChecks/bloomMisses/flashChecks/
+  bloomPass/bloomFprTheory` in `/stats.json`; `build_blocklist.py` gains
+  `--target-fpr/--max-domains/--truncate` with per-suffix + per-query
+  estimates; README documents default sources (StevenBlack + Hagezi Light)
+  and the 128 KB sizing table (140–170k sweet spot).
+- **v1.1.0** — single-app max-blocklist variant (`partitions-single.csv`,
+  `env:c3-single`: 1.25 MB firmware slot + ~2.75 MB LittleFS for ~540k
+  domains, firmware updates via USB/web flasher only); honest
+  filesystem-full errors on blocklist upload (live + staging need ~2x, FS
+  usage now visible in `/stats.json` + dashboard); dual-OTA stays default.
+- **v1.0.9** — pinned PlatformIO `espressif32@7.1.3`: the floating platform
+  had moved to 8.x (Arduino core 3.x), whose firmware (~1.42 MB) overflows
+  the 0x150000 app slot; the pinned toolchain builds at ~1.06 MB.
+- **v1.0.8** — fixed release build on the latest PlatformIO `espressif32`
+  toolchain (mbedTLS 3.x): SHA-256 now uses the version-appropriate API and
+  blocklist ECDSA verification no longer touches opaque `ecdsa_context`
+  internals (portable `grp` + `Q` + `r/s` + `mbedtls_ecdsa_verify`), so the
+  build compiles on both mbedTLS 2.x and 3.x.
+- **v1.0.7** — fixed remote auto-update `HTTP -1` on the GitHub Pages URL:
+  bare host/path without a scheme now gets `https://` prepended (dashboard JS
+  + firmware), each hop is retried once after a pause (first C3 TLS handshake
+  often fails transiently on weak RSSI/low heap), failures report the
+  mbedTLS handshake error + heap instead of a bare "connection refused", and
+  connect timeout is capped at 15 s; new `sync-pages` workflow keeps the fixed
+  Pages URL fresh (rebuild + overwrite `docs/blocklist.bin` on release,
+  weekly, or manual dispatch — bin/`.sig` always in sync).
+- **v1.0.6** — maintenance version bump only, no functional changes (keeps
+  firmware version + web flasher manifest in sync).
+- **v1.0.5** — fixed GitHub Releases blocklist fetch: `.sig` is now fetched
+  next to the *original* URL (not the signed `release-assets` redirect URL
+  with `?sp=r&sig=...` query, which always 404'd) **and** follows redirects
+  itself, so `.../releases/latest/download/blocklist.bin` (+ `.sig`) works;
+  `raw.githubusercontent.com/.../releases/...` is rejected with a helpful
+  message (raw only serves git files, never release assets); explicit
+  `User-Agent`, protocol-relative redirect support.
+- **v1.0.4** — diagnosable remote fetch (no more bare `HTTP -1`: DNS pre-check,
+  `errorToString` + `wifi/rssi/heap` in status, 60 s timeout, 30 s TLS handshake
+  cap); **cooler idle** (`WIFI_PS_MIN_MODEM` modem sleep — TX power alone only
+  saves 1–3 °C); honest thermal docs.
+- **v1.0.3** — **ECDSA-signed blocklist updates** (`--sign-key` → `.sig`, mbedTLS
+  verify on device, `<url>.sig` auto-fetch, dashboard signed/UNVERIFIED badge +
+  require-signed toggle); **CSRF token via `X-CSRF-Token` header only**
+  (incl. upload handlers, which had no CSRF check); `/setwifi` is POST-only;
+  brute-force brake (5 bad passwords/60 s → 429).
+- **v1.0.2** — fixed update-path data loss (live list kept until replacement
+  validates; empty feeds rejected), Bloom-malloc offset corruption, DHCP
+  (broadcast replies, octet pool, lease expiry), empty-device auto-heal, WiFi
+  reconnect, per-boot CSRF rotation, dashboard XSS escaping, plus honest
+  docs (no CA verification — signatures are the trust anchor).
 
 This is a heavily upgraded fork of the original `esp32-c3-adblock`. Every item from
 the original "how it could grow" list is done, plus a long list of correctness,
@@ -34,18 +91,34 @@ performance, and security fixes:
 - **Client table with LRU eviction** — was silently dropping stats past 96 clients.
 - **Banned IPs decoupled from the client table** — banning an IP with no active
   client entry now persists correctly.
-- **Idle-gated remote blocklist fetch** — only runs when DNS has been quiet 3+ s,
-  so a 20-second HTTPS download no longer freezes the household's DNS.
+- **Idle-gated remote blocklist fetch** — only *starts* when DNS has been quiet 3+ s,
+  so a scheduled pull doesn't kick off mid-stream. Note: the HTTPS download
+  itself still blocks DNS for several seconds while it runs — schedule off-peak.
 - **`millis()` wraparound-safe timing** — was broken every ~49 days of uptime.
 - **`parseQuery` robust bounds checking** — was fragile on compression pointers.
 
 ### Security
-- **Dashboard authentication** — Basic Auth using a fixed password configured
-  in the ignored `src/secrets.h` file.
-- **CSRF token** on all mutating endpoints — a malicious page on the LAN can't
-  ban clients or upload firmware via the victim's browser.
-- **CA-verified HTTPS** for remote blocklist fetches — was `setInsecure()`, which
-  let a MITM swap your blocklist for an empty one (silently disabling blocking).
+- **Dashboard authentication** — Basic Auth with a random password generated on
+  first boot (printed on serial), plus a brute-force brake (5 bad passwords in
+  60 s → HTTP 429 for a while). Was: no auth, anyone on the LAN could flash
+  firmware or swap the blocklist.
+- **CSRF token in a header** on all mutating endpoints — `X-CSRF-Token`, never in
+  the URL (no history/log/Referer leak). A malicious page on the LAN can't ban
+  clients, change WiFi, or upload firmware via the victim's browser — and the
+  firmware/software upload handlers now enforce the token too (they previously
+  relied on Basic Auth alone, which does not stop CSRF).
+- **Signed blocklist updates (ECDSA P-256)** — `tools/build_blocklist.py --sign-key`
+  writes `blocklist.bin.sig`; the firmware verifies it with mbedTLS against the
+  key in `src/blocklist_pubkey.h` before swapping. Bad signatures are rejected,
+  stale `.sig` files are never trusted, and the dashboard shows
+  signed/unverified (+ key id) with an optional "require-signed" enforcement
+  toggle. Remote fetch pulls `<url>.sig` automatically when published.
+- **HTTPS with redirect-following** for remote blocklist fetches (GitHub Releases
+  & custom URLs). Note: certificate validation is *not* performed (`setInsecure`,
+  no NTP/root store on the C3), so a LAN MITM could serve a well-formed but
+  wrong list — the firmware rejects bad magic/size and empty lists and keeps
+  the live list on any failure. For high assurance, upload `blocklist.bin`
+  manually via the dashboard instead of remote pull.
 
 ### Features
 - **WiFiManager captive portal** — first-boot WiFi setup without recompiling.
@@ -64,7 +137,7 @@ performance, and security fixes:
 
 ### Code quality
 - **Dashboard HTML extracted** to `src/dashboard_html.h` (was inline in `main.cpp`).
-- **33 Python tests** for hashing, normalization, binary format, and Bloom filter
+- **37 Python tests** for hashing, normalization, binary format, Bloom filter, and ECDSA signatures
   correctness (`python3 tools/test_build_blocklist.py`).
 - **`LOG`/`LOGN` macros** — silence serial output with `-DNDEBUG`.
 - **Removed hardcoded `/dev/ttyACM0`** from `platformio.ini` — PlatformIO
@@ -195,7 +268,7 @@ download anything manually.
    ```bash
    esptool.py --chip esp32c3 --port /dev/ttyACM0 --baud 460800 \
      write_flash \
-     0x1000   bootloader.bin \
+     0x0      bootloader.bin \
      0x8000   partitions.bin \
      0x10000  firmware.bin \
      0x2b0000 blocklist-fs.bin
@@ -238,6 +311,15 @@ You need [PlatformIO](https://platformio.org/) and Python 3.
    ```bash
    pio run -t upload
    pio run -t uploadfs
+   ```
+   Signing your own blocklists (recommended if you publish a remote URL):
+   ```bash
+   # once: generate a keypair (privkey stays local + backed up, never committed)
+   python3 tools/sign_blocklist.py gen --priv tools/blocklist_signing.key --pub-h src/blocklist_pubkey.h
+   # per build: blocklist.bin + blocklist.bin.sig
+   python3 tools/build_blocklist.py data/blocklist.bin --sign-key tools/blocklist_signing.key
+   # remote fleet: publish both files; devices fetch blocklist.bin + blocklist.bin.sig
+   # CI releases: paste the privkey PEM into the BLOCKLIST_SIGN_KEY repo secret
    ```
 
 6. **Continue to first-boot setup** below.
@@ -309,23 +391,72 @@ querying device appear in the **CLIENTS** table.
 
 The dashboard at **http://c3adblock.local** does it all:
 
-- **Blocklist** — drop a freshly built `blocklist.bin` into *Blocklist → Upload*, or set a
+- **Blocklist** — drop a freshly built `blocklist.bin` (+ optional `.sig` from
+  `--sign-key`) into *Blocklist → Upload*, or set a
   URL under *Remote auto-update* and the device pulls a prebuilt `blocklist.bin`
-  on a schedule (e.g. a GitHub release asset — update it once, every device fetches it).
-  Remote fetches use **CA-verified HTTPS** (no `setInsecure`) and only run when DNS
-  has been idle for 3+ seconds, so they don't interrupt service.
+  (+ `<url>.sig` when published) on a schedule. Good URLs:
+  `https://9m2pju.github.io/9M2PJU-ESP32-C3-AdBlocker/blocklist.bin` (GitHub
+  Pages — fastest on the C3, no redirect; auto-refreshed weekly + on every
+  release by the `sync-pages` workflow) or
+  `https://github.com/9M2PJU/9M2PJU-ESP32-C3-AdBlocker/releases/latest/download/blocklist.bin`
+  (follows the `github.com → release-assets` redirect chain, `.sig` too).
+  Do **not** use `raw.githubusercontent.com/.../releases/...` — raw only serves
+  files committed to git, so every release-asset path 404s there (the firmware
+  now says so explicitly instead of a bare `HTTP 404`).
+  Remote fetches support HTTPS with redirect-following (ideal for GitHub releases) and
+  only *start* when DNS has been idle for 3+ seconds. Note: the download itself
+  still pauses DNS for several seconds — schedule off-peak. Validation rejects
+  bad magic/size and empty lists, bad signatures, and (if enabled) unsigned
+  lists — keeping the live list on any failure. The dashboard shows whether the
+  live list is `signed` or `UNVERIFIED` and lets you toggle "require-signed".
+- **WiFi & Thermals** — change the WiFi network and configure WiFi TX power (from 2 dBm
+  up to 19.5 dBm, default 8.5 dBm) and WiFi power-save (`min` = modem sleep,
+  `none` = always on) directly from the dashboard. Modem sleep + CPU idle
+  yielding are the main idle coolers; lower TX power only trims TX bursts
+  (~1–3 °C). Expect ~45–55 °C on a SuperMini in a case — keep vents open,
+  antenna clear, and use a stable 5V/1A supply. If `RSSI < -70 dBm`,
+  raise TX instead: a weak signal causes retries (more heat + failed fetches).
+  If the serial log shows `CCMP replay detected` + `WiFi connect failed` loops
+  (some TP-Link APs with modem sleep), set power-save to `none`. Reconnects
+  do a clean disconnect/re-associate, re-bind DNS/mDNS sockets, and reboot
+  after ~5 min continuously offline to recover a wedged radio.
+  Remote-fetch failures now report `HTTP -1 (connection refused) [wifi:up rssi:-xx heap:xxk]`
+  or `DNS failed for <host>` so heap vs DNS vs TLS is distinguishable in serial + dashboard.
 - **Firmware** — upload `.pio/build/c3/firmware.bin` under *Firmware → OTA update*; the
   device verifies it and reboots into the new image. Or push over WiFi from the CLI:
   ```bash
   pio run -t upload --upload-port c3adblock.local --upload-protocol espota
   ```
-- **WiFi** — change the WiFi network from the dashboard (no reflash needed).
 - **DHCP** — optionally enable the built-in DHCP server so the C3 hands itself out
   as the DNS server. Disable your router's DHCP first, then toggle this on.
 
 **4 MB flash tradeoff:** firmware OTA needs *two* app slots, which leaves ~1.3 MB for the
-blocklist (**~250k domains max**). The aggressive 537k "ultimate" list only fits the
-single-app partition table (no firmware OTA). Pick your tradeoff in `partitions.csv`.
+blocklist. Note the swap stages the replacement next to the live file (peak ~2x),
+so dashboard/remote blocklist OTA tops out around **~115–120k domains** — beyond
+that you get an honest "filesystem full" rejection instead of a crash. The bundled
+~115k list fits comfortably. For bigger lists use the single-app variant below.
+
+### Single-app variant: max blocklist, USB firmware updates
+
+Need the aggressive ~500k "ultimate" list? Build with the single-app layout —
+one 1.25 MB firmware slot (no OTA rollback) + ~2.75 MB LittleFS (~540k domains
+with the 128 KB bloom):
+
+```bash
+pio run -e c3-single -t upload       # firmware over USB (erases + flashes)
+pio run -e c3-single -t uploadfs     # blocklist filesystem over USB
+```
+
+Rules for this variant:
+- **Firmware updates are USB-only** (esptool / PlatformIO / web flasher reflash).
+  The dashboard `/update` endpoint and ArduinoOTA refuse with an explanatory
+  message instead of risking the running image — there is no rollback slot.
+- **Blocklist still updates over WiFi** (dashboard upload + remote auto-update)
+  for lists that fit the live+staging window. The full ultimate list itself must
+  be flashed via USB (`uploadfs` writes a fresh filesystem image, single copy).
+- At ~537k domains the 128 KB RAM bloom runs at high FPR (or malloc fails and
+  lookups transparently fall back to flash binary search — slower but correct).
+  This is expected: a 40-bit hash table that big simply outgrows a C3's RAM filter.
 
 ## How domain matching works
 
@@ -366,6 +497,32 @@ The firmware validates the magic, version, and hash_bytes on load — a mismatch
 (e.g. wrong `HASH_BYTES`) is rejected instead of silently corrupting lookups.
 Collisions are reported to `blocklist.bin.collisions.txt` by the build script.
 
+## Blocklist sources & sizing (128 KB bloom)
+
+Default build (`tools/build_blocklist.py` with no args):
+StevenBlack base hosts + Hagezi Light (`wildcard/light-onlydomains.txt`) —
+~140k domains, WhatsApp/social safe. Hagezi is deduplicated and well curated;
+OISD is a solid alternative for a balanced list. AdGuard filter syntax is
+deliberately not parsed (regex/modifier rules don't map to a hash list).
+
+Measured guide (128 KB = 1,048,576 bits, optimal k; per-query assumes
+~2 suffix checks per query, `1-(1-p)^2`):
+
+| domains | k | FPR per-suffix | FPR per-query |
+|---|---|---|---|
+| 140k | 5 | ~2.7% | ~5.4% |
+| 150k | 5 | ~3.5% | ~6.8% |
+| 160k | 5 | ~4.3% | ~8.5% |
+| 170k | 4 | ~5.2% | ~10.1% |
+| 200k | 4 | ~8.1% | ~15.6% |
+
+Rule of thumb: 140–170k is the sweet spot (per-suffix FPR ≤ 5%).
+The build script enforces this: `--target-fpr 0.05` warns (and `--truncate`
+caps, `--max-domains N` caps explicitly), printing both estimates.
+The firmware logs the theory FPR at boot (`[bl] ... theory FPR x.xx%`) and
+exposes runtime counters in `/stats.json` (`bloomChecks`, `bloomMisses`,
+`flashChecks`, `bloomPass` = measured pass rate, `bloomFprTheory`).
+
 ## Gotchas (learned the hard way)
 
 - **ModemManager** (default on Fedora/Ubuntu) grabs `/dev/ttyACM0` and toggles
@@ -383,7 +540,7 @@ Collisions are reported to `blocklist.bin.collisions.txt` by the build script.
 ## Testing
 
 ```bash
-python3 tools/test_build_blocklist.py    # 33 tests: hashing, normalization, binary format, bloom
+python3 tools/test_build_blocklist.py    # 37 tests: hashing, normalization, binary format, bloom, signatures
 ```
 
 CI runs automatically on every push and PR via `.github/workflows/ci.yml` —
@@ -410,6 +567,12 @@ Releases with auto-generated release notes. Assets:
 | `partitions.bin` | Partition table (rarely needed separately) |
 | `blocklist-fs.bin` | LittleFS image with the prebuilt blocklist |
 | `blocklist.bin` | Prebuilt blocklist (~140k domains) — for OTA blocklist updates |
+| `blocklist.bin.sig` | Detached ECDSA signature for `blocklist.bin` (when the release was built with the signing key) |
+
+Set the `BLOCKLIST_SIGN_KEY` repo secret (PEM of the private key matching
+`src/blocklist_pubkey.h`) and the release workflow signs the blocklist
+automatically; without it, releases ship unsigned and devices report them
+`UNVERIFIED` (still accepted unless require-signed is on).
 
 ## Done / how it could grow
 
@@ -423,11 +586,30 @@ Releases with auto-generated release notes. Assets:
 - ✅ Dashboard auth (fixed Basic Auth password + CSRF token)
 - ✅ WiFiManager captive portal (first-boot WiFi setup without recompiling)
 - ✅ Optional DHCP server (hands out C3 as DNS for plug-and-play)
-- ✅ CA-verified HTTPS for remote blocklist fetches
+- ✅ HTTPS with redirect following + **ECDSA-signed** remote blocklist fetches (GitHub Releases & custom URLs; no CA verification — bad/empty/bad-signature feeds rejected, live list kept, optional require-signed)
+- ✅ Configurable WiFi TX power (2 to 19.5 dBm) & FreeRTOS idle sleep for cool PCB thermals
+- ✅ Browser Web Flasher via ESP Web Tools with correct ESP32-C3 bootloader offset 0x0
 - ✅ Blocklist v1 format with header validation
 - ⬜ Per-client blocking rules (different blocklists for different devices)
 - ⬜ Allowlist (override blocklist for specific domains)
 - ⬜ Query logging / export
+
+## Support & Sponsoring
+
+If you find this project useful and would like to support maintenance and development:
+
+<p align="center">
+  <a href="https://buymeacoffee.com/9m2pju" target="_blank" rel="noopener">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="48">
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://paypal.me/9m2pju" target="_blank" rel="noopener">
+    <img src="https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif" alt="Donate with PayPal">
+  </a>
+</p>
+
+- **Buy Me a Coffee**: [buymeacoffee.com/9m2pju](https://buymeacoffee.com/9m2pju)
+- **PayPal**: [paypal.me/9m2pju](https://paypal.me/9m2pju)
 
 ## Credits
 

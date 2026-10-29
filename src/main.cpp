@@ -792,38 +792,9 @@ static String b64encode(const String& s) {
   }
   return o;
 }
-static void genToken();
-static void genRandomPassword() {
-  const char chars[] = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  authPassword = "";
-  for (int i = 0; i < 10; i++)
-    authPassword += chars[esp_random() % (sizeof(chars) - 1)];
-  genToken();
-}
-static void genToken() {
-  // 64-bit CSRF token (16 hex chars). Regenerated every boot so a token
-  // leaked via browser history/logs is useless after a reboot.
-  uint32_t a = esp_random(), b = esp_random();
-  char t[17];
-  snprintf(t, sizeof(t), "%08x%08x", (unsigned)a, (unsigned)b);
-  authToken = String(t);
-}
-static void loadAuth() {
-  File f = LittleFS.open("/auth.cfg", "r");
-  if (f) {
-    authPassword = f.readStringUntil('\n'); authPassword.trim();
-    authToken = f.readStringUntil('\n'); authToken.trim();
-    f.close();
-  }
-  if (authPassword.length() == 0) {
-    genRandomPassword();  // sets password + token
-  } else {
-    genToken();           // keep the password, rotate the token every boot
-  }
-  {
-    File fo = LittleFS.open("/auth.cfg", "w");
-    if (fo) { fo.println(authPassword); fo.println(authToken); fo.close(); }
-  }
+static void initAuth() {
+  authPassword = DASHBOARD_PASSWORD;
+  authToken = String((uint32_t)(esp_random() & 0xFFFFFF), HEX);
 }
 static bool checkAuth() {
   String expected = "Basic " + b64encode("admin:" + authPassword);
@@ -868,7 +839,7 @@ static String jesc(const String& s) {
 static void handleRoot() {
   if (!checkAuth()) { requireAuth(); return; }
   if (web.header("If-None-Match") == DASHBOARD_ETAG) { web.send(304); return; }
-  web.sendHeader("Cache-Control", "max-age=3600");
+  web.sendHeader("Cache-Control", "no-cache");
   web.sendHeader("ETag", DASHBOARD_ETAG);
   web.send_P(200, "text/html", PAGE);
 }
@@ -1702,6 +1673,14 @@ static void handleFwUpload() {
 }
 
 // ---- WiFi config (WiFiManager captive portal) ----
+static int wifiDisconnectReason = -1;
+
+static void captureWiFiDisconnect(WiFiEvent_t event, WiFiEventInfo_t info) {
+  if (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED) {
+    wifiDisconnectReason = info.wifi_sta_disconnected.reason;
+  }
+}
+
 static bool loadWifiCfg(String& ssid, String& pass) {
   File f = LittleFS.open("/wifi.cfg", "r");
   if (!f) return false;
@@ -1880,7 +1859,7 @@ void setup() {
 
   if (!LittleFS.begin(true)) LOGN("LittleFS FAILED");
 
-  loadAuth();
+  initAuth();
   loadCustom();
   loadBanned();
   loadUpdateCfg();

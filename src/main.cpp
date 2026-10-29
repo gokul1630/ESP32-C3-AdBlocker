@@ -284,7 +284,7 @@ static bool isBlocked(const char* domain, size_t dlen) {
     bool checkFlash = bloomMayContain(h64);  // false = definitely not in list, skip flash
     if (checkFlash) flashChecks++;
     else bloomMisses++;
-    if (checkFlash && (inFlash(h40) || inCustom(h40))) return true;
+    if (inCustom(h40) || (checkFlash && inFlash(h40))) return true;
     const char* dot = (const char*)memchr(p, '.', remaining);
     if (!dot) break;
     size_t consumed = (size_t)(dot - p) + 1;
@@ -510,7 +510,7 @@ static bool handleDns() {
 
   Dev* c = getClient((uint32_t)cip);
   bool ban = c && c->banned;
-  bool blocked = ban || (dl && numHashes && isBlocked(domain, dl));
+  bool blocked = ban || (dl && isBlocked(domain, dl));
 
   if (blocked) {
     int rlen = buildBlocked(dnsBuf, qend, qtype);
@@ -606,7 +606,7 @@ static bool handleTcpDns() {
   size_t dl = parseQuery(tcpBuf, total, domain, &qtype, &qend);
   Dev* c = getClient((uint32_t)tcpDnsClient.remoteIP());
   bool ban = c && c->banned;
-  bool blocked = ban || (dl && numHashes && isBlocked(domain, dl));
+  bool blocked = ban || (dl && isBlocked(domain, dl));
 
   int rlen;
   if (blocked) {
